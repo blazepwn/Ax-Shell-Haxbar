@@ -14,10 +14,32 @@ import modules.icons as icons
 from services.network import NetworkClient
 
 
+def _get_cursor_window(widget):
+    window = widget.get_window()
+    if not window:
+        toplevel = widget.get_toplevel()
+        if toplevel:
+            window = toplevel.get_window()
+    return window
+
+
 def add_hover_cursor(widget):
     widget.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
-    widget.connect("enter-notify-event", lambda w, e: w.get_window().set_cursor(Gdk.Cursor.new_from_name(w.get_display(), "pointer")) if w.get_window() else None)
-    widget.connect("leave-notify-event", lambda w, e: w.get_window().set_cursor(None) if w.get_window() else None)
+
+    def on_enter(w, _event):
+        window = _get_cursor_window(w)
+        if not window:
+            return
+        window.set_cursor(Gdk.Cursor.new_from_name(w.get_display(), "pointer"))
+
+    def on_leave(w, _event):
+        window = _get_cursor_window(w)
+        if not window:
+            return
+        window.set_cursor(None)
+
+    widget.connect("enter-notify-event", on_enter)
+    widget.connect("leave-notify-event", on_leave)
 
 class NetworkButton(Box):
     def __init__(self, **kwargs):
