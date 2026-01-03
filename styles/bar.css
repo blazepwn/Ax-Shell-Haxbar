@@ -107,6 +107,31 @@ menu > menuitem > label,
   font-size: 20px;
 }
 
+#local-ip,
+#htb-ip,
+#target {
+  background-color: var(--shadow);
+  min-height: 36px;
+  padding: 0 8px;
+}
+
+#local-ip.invert,
+#htb-ip.invert,
+#target.invert {
+  background-color: var(--surface);
+  border-radius: 12px;
+}
+
+#local-ip-label,
+#htb-ip-label,
+#target-label {
+  font-weight: bold;
+}
+
+#htb-ip.disconnected #htb-ip-label {
+  color: var(--outline);
+}
+
 #weather {
   background-color: var(--shadow);
   padding: 0 8px;

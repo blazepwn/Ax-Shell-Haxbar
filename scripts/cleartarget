@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+TARGET_FILE="${HOME}/.config/Ax-Shell/scripts/target"
+
+mkdir -p "$(dirname "${TARGET_FILE}")"
+: > "${TARGET_FILE}"

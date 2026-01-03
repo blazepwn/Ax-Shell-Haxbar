@@ -23,6 +23,7 @@ from modules.systemprofiles import Systemprofiles
 from modules.systemtray import SystemTray
 from modules.weather import Weather
 from widgets.wayland import WaylandWindow as Window
+from modules.pentest_widgets import HtbIPWidget, LocalIPWidget, TargetWidget
 
 CHINESE_NUMERALS = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "〇"]
 
@@ -187,6 +188,13 @@ class Bar(Window):
         self.sysprofiles = Systemprofiles()
 
         self.network = NetworkApplet()
+        self.local_ip = LocalIPWidget()
+        self.htb_ip = HtbIPWidget()
+        self.target = TargetWidget()
+
+        if data.VERTICAL:
+            self.local_ip.set_visible(False)
+            self.htb_ip.set_visible(False)
 
         self.lang_label = Label(name="lang-label")
         self.language = Button(
@@ -275,6 +283,8 @@ class Bar(Window):
         )
 
         self.rev_left = [
+            self.local_ip,
+            self.htb_ip,
             self.weather,
             self.sysprofiles,
             self.network,
@@ -310,6 +320,7 @@ class Bar(Window):
             self.boxed_revealer_right,
             self.battery,
             self.systray,
+            self.target,
             self.button_tools,
             self.language,
             self.date_time,
@@ -439,6 +450,7 @@ class Bar(Window):
         ]
         if self.integrated_dock_widget:
             self.themed_children.append(self.integrated_dock_widget)
+        self.themed_children.extend([self.local_ip, self.htb_ip, self.target])
 
         current_theme = data.BAR_THEME
         theme_classes = ["pills", "dense", "edge", "edgecenter"]
