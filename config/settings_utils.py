@@ -282,7 +282,8 @@ bind = {get_bind_var("prefix_restart_inspector")}, {get_bind_var("suffix_restart
 
 source = {home}/.config/{APP_NAME_CAP}/config/hypr/colors.conf
 
-layerrule = noanim, fabric
+layerrule = match:namespace ^(fabric)$, no_anim on
+
 
 exec = cp $wallpaper ~/.current.wall
 

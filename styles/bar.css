@@ -132,6 +132,10 @@ menu > menuitem > label,
   color: var(--outline);
 }
 
+#htb-ip.disconnected {
+  opacity: 0.7;
+}
+
 #weather {
   background-color: var(--shadow);
   padding: 0 8px;
