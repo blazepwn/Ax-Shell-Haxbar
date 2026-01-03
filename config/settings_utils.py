@@ -290,8 +290,8 @@ exec = cp $wallpaper ~/.current.wall
 general {{
     col.active_border = rgb($primary)
     col.inactive_border = rgb($surface)
-    gaps_in = 2
-    gaps_out = 4
+    gaps_in = 10
+    gaps_out = 10
     border_size = 2
     layout = dwindle
 }}
