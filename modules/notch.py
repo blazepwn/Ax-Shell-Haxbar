@@ -1,3 +1,5 @@
+# Original implementation by Axenide.
+# Modified in Haxbar Edition to support "Hard Overlay" positioning (exclusivity=none + zero margins).
 from fabric.hyprland.widgets import HyprlandActiveWindow as ActiveWindow
 from fabric.utils.helpers import FormattedString, get_desktop_applications
 from fabric.widgets.box import Box
@@ -135,7 +137,7 @@ class Notch(Window):
             name="notch",
             layer="overlay",
             anchor=anchor_val,
-            margin="-52px 0px 0px 0px",          # CAMBIO 1: Volver al margen negativo para subirla
+            margin="-48px 0px 0px 0px",          # CAMBIO 1: Volver al margen negativo para subirla
             keyboard_mode="none",
             exclusivity="none",                  # CAMBIO 2: Mantener "none" para permitir el solapamiento
             visible=True,
