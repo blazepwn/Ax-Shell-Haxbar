@@ -135,9 +135,9 @@ class Notch(Window):
             name="notch",
             layer="overlay",
             anchor=anchor_val,
-            margin="-48px 0px 0px 0px",
+            margin="-52px 0px 0px 0px",          # CAMBIO 1: Volver al margen negativo para subirla
             keyboard_mode="none",
-            exclusivity="none" if data.PANEL_THEME == "Notch" else "normal",
+            exclusivity="none",                  # CAMBIO 2: Mantener "none" para permitir el solapamiento
             visible=True,
             all_visible=True,
             monitor=monitor_id,
