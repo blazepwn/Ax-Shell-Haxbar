@@ -20,6 +20,9 @@ from modules.player import PlayerSmall
 from modules.power import PowerMenu
 from modules.tmux import TmuxManager
 from modules.tools import Toolbox
+from modules.network_menu import NetworkMenu
+from modules.vpn_menu import VPNMenu
+from modules.target_menu import TargetMenu
 from utils.icon_resolver import IconResolver
 from utils.occlusion import check_occlusion
 from widgets.wayland import WaylandWindow as Window
@@ -106,9 +109,9 @@ class Notch(Window):
                             anchor_val = "bottom"
                             revealer_transition_type = "slide-up"
 
-        default_top_anchor_margin_str = "-40px 8px 8px 8px"
-        pills_margin_top_str = "-40px 0px 0px 0px"
-        dense_edge_margin_top_str = "-46px 0px 0px 0px"
+        default_top_anchor_margin_str = "-48px 0px 0px 0px"
+        pills_margin_top_str = "-48px 0px 0px 0px"
+        dense_edge_margin_top_str = "-54px 0px 0px 0px"
         current_margin_str = ""
 
         if data.PANEL_THEME == "Panel":
@@ -132,7 +135,7 @@ class Notch(Window):
             name="notch",
             layer="overlay",
             anchor=anchor_val,
-            margin=current_margin_str,
+            margin="-48px 0px 0px 0px",
             keyboard_mode="none",
             exclusivity="none" if data.PANEL_THEME == "Notch" else "normal",
             visible=True,
@@ -176,6 +179,9 @@ class Notch(Window):
         self.power = PowerMenu(notch=self)
         self.tmux = TmuxManager(notch=self)
         self.cliphist = ClipHistory(notch=self)
+        self.network_menu = NetworkMenu(notch=self)
+        self.vpn_menu = VPNMenu(notch=self)
+        self.target_menu = TargetMenu(notch=self)
 
         # Audio service initialization
         self.audio = Audio()
@@ -362,6 +368,9 @@ class Notch(Window):
                 self.tools,
                 self.tmux,
                 self.cliphist,
+                self.network_menu,
+                self.vpn_menu,
+                self.target_menu,
             ],
         )
 
@@ -385,6 +394,9 @@ class Notch(Window):
             self.launcher.set_size_request(480, 244)
             self.tmux.set_size_request(480, 244)
             self.cliphist.set_size_request(480, 244)
+            self.network_menu.set_size_request(480, 244)
+            self.vpn_menu.set_size_request(480, 244)
+            self.target_menu.set_size_request(480, 244)
             self.dashboard.set_size_request(1093, 472)
 
         self.stack.set_interpolate_size(True)
@@ -1008,6 +1020,18 @@ class Notch(Window):
             "overview": {"instance": self.overview, "hide_revealers": True},
             "power": {"instance": self.power},
             "tools": {"instance": self.tools},
+            "network": {
+                "instance": self.network_menu,
+                "action": self.network_menu.open,
+            },
+            "vpn": {
+                "instance": self.vpn_menu,
+                "action": self.vpn_menu.open,
+            },
+            "target": {
+                "instance": self.target_menu,
+                "action": self.target_menu.open,
+            },
         }
 
         if widget_name in widget_configs:

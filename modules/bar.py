@@ -12,7 +12,8 @@ from fabric.widgets.centerbox import CenterBox
 from fabric.widgets.datetime import DateTime
 from fabric.widgets.label import Label
 from fabric.widgets.revealer import Revealer
-from gi.repository import Gdk, GLib, Gtk
+from fabric.widgets.image import Image
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk
 
 import config.data as data
 import modules.icons as icons
@@ -93,8 +94,7 @@ class Bar(Window):
 
         self.set_anchor(self.anchor_var)
         self.set_margin(self.margin_var)
-
-        self.notch = kwargs.get("notch", None)
+        self._notch = kwargs.get("notch", None)
         self.component_visibility = data.BAR_COMPONENTS_VISIBILITY
 
         self.dock_instance = None
@@ -188,9 +188,9 @@ class Bar(Window):
         self.sysprofiles = Systemprofiles()
 
         self.network = NetworkApplet()
-        self.local_ip = LocalIPWidget()
-        self.htb_ip = HtbIPWidget()
-        self.target = TargetWidget()
+        self.local_ip = LocalIPWidget(notch=self.notch)
+        self.htb_ip = HtbIPWidget(notch=self.notch)
+        self.target = TargetWidget(notch=self.notch)
 
         if data.VERTICAL:
             self.local_ip.set_visible(False)
@@ -225,11 +225,25 @@ class Bar(Window):
             style_classes=["vertical"] if data.VERTICAL else [],
         )
 
+        # Launcher Button Child
+        launcher_child = None
+        if data.LAUNCHER_ICON_PATH and os.path.exists(data.LAUNCHER_ICON_PATH):
+             try:
+                 print(f"[Bar] Loading custom launcher icon from: {data.LAUNCHER_ICON_PATH}")
+                 pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(data.LAUNCHER_ICON_PATH, 24, 24)
+                 launcher_child = Image(name="launcher-icon", size=24)
+                 launcher_child.set_from_pixbuf(pixbuf)
+             except Exception as e:
+                 print(f"[Bar] Error loading custom launcher icon: {e}")
+
+        if not launcher_child:
+            launcher_child = Label(name="button-bar-label", markup=icons.apps)
+
         self.button_apps = Button(
             name="button-bar",
             tooltip_markup=tooltip_apps,
             on_clicked=lambda *_: self.search_apps(),
-            child=Label(name="button-bar-label", markup=icons.apps),
+            child=launcher_child,
         )
         self.button_apps.connect("enter_notify_event", self.on_button_enter)
         self.button_apps.connect("leave_notify_event", self.on_button_leave)
@@ -643,3 +657,17 @@ class Bar(Window):
             self.workspaces_num.add_style_class("chinese")
         else:
             self.workspaces_num.remove_style_class("chinese")
+
+    @property
+    def notch(self):
+        return self._notch
+
+    @notch.setter
+    def notch(self, value):
+        self._notch = value
+        if hasattr(self, 'local_ip') and self.local_ip:
+            self.local_ip.notch = value
+        if hasattr(self, 'htb_ip') and self.htb_ip:
+            self.htb_ip.notch = value
+        if hasattr(self, 'target') and self.target:
+            self.target.notch = value

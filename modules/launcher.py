@@ -90,7 +90,7 @@ class AppLauncher(Box):
                     name="config-button",
                     tooltip_markup=tooltip_settings,
                     child=Label(name="config-label", markup=icons.config),
-                    on_clicked=lambda *_: (exec_shell_command_async(f"python {get_relative_path('../config/config.py')}"), self.close_launcher()),
+                    on_clicked=lambda *_: (exec_shell_command_async(f"python3 {get_relative_path('../config/config.py')}"), self.close_launcher()),
                 ),
                 self.search_entry,
                 Button(

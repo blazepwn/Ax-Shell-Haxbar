@@ -1,7 +1,6 @@
 #notch-box {
-  margin: 0 20px 10px 20px;
+  margin: 0 20px 10px 20px; /* Margen negativo de -48px aplicado */
 }
-
 #notch-hover-eventbox {
   background-color: transparent;
   min-height: 4px;
@@ -95,6 +94,7 @@
 #tmux-manager,
 #clip-history,
 #overview,
+#network-menu,
 #emoji {
   background-color: var(--shadow);
   padding: 14px;
@@ -109,23 +109,61 @@
 #notch-content.panel #tmux-manager,
 #notch-content.panel #clip-history,
 #notch-content.panel #overview,
+#notch-content.panel #network-menu,
 #notch-content.panel #emoji {
   border-radius: 34px;
 }
 
 #notch-content.panel {
-  border-radius: 36px;
+  border-radius: 0 0 36px 36px;
 }
 
 #notch-box.panel {
-  margin: 6px;
+  margin: 0px 6px 6px 6px;
   padding: 2px;
   background-color: var(--surface);
-  border-radius: 36px;
+  border-radius: 0 0 36px 36px;
 }
 
 #notch-content.open.panel {
   background-color: var(--shadow);
   padding: 0px;
-  border-radius: 36px;
+  border-radius: 0 0 36px 36px;
 }
+
+#slot-button.active-vpn {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--primary);
+    border-radius: 12px;
+}
+
+#inline-stop-button {
+    background-color: transparent;
+    color: #ff453a;
+    border-radius: 50%;
+    min-height: 24px;
+    min-width: 24px;
+    padding: 0px;
+    margin-right: 5px;
+    border: 1px solid rgba(255, 69, 58, 0.3);
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+#inline-stop-button:hover {
+    background-color: #ff453a;
+    color: #ffffff;
+    border-color: #ff453a;
+    box-shadow: 0 0 8px rgba(255, 69, 58, 0.4);
+}
+
+#inline-stop-button:active {
+    background-color: #d03025;
+    box-shadow: none;
+}
+
+#inline-stop-button label {
+    font-size: 14px;
+    margin: 0;
+    padding: 0;
+}
+

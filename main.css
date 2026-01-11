@@ -1,8 +1,8 @@
+@import url("./styles/colors.css");
 @import url("./styles/applets.css");
 @import url("./styles/bar.css");
 @import url("./styles/buttons.css");
 @import url("./styles/calendar.css");
-@import url("./styles/colors.css");
 @import url("./styles/controls.css");
 @import url("./styles/dashboard.css");
 @import url("./styles/dock.css");
@@ -25,7 +25,7 @@
 
 * {
   all: unset;
-  color: var(--foreground);
+  color: @foreground;
   font-size: unset;
   font-family: unset;
   border-radius: 16px;
@@ -44,43 +44,43 @@
 #update-window {
   background: linear-gradient(
     135deg,
-    var(--primary) 0%,
-    var(--primary) 1%,
-    var(--shadow) 1%,
-    var(--shadow) 2%,
-    var(--outline) 2%,
-    var(--outline) 3%,
-    var(--shadow) 3%,
-    var(--shadow) 4%,
-    var(--surface-bright) 4%,
-    var(--surface-bright) 5%,
-    var(--shadow) 5%,
-    var(--shadow) 6%,
-    var(--surface) 6%,
-    var(--surface) 7%,
-    var(--shadow) 7%,
-    var(--shadow) 8%,
-    var(--shadow) 93%,
-    var(--surface) 93%,
-    var(--surface) 94%,
-    var(--shadow) 94%,
-    var(--shadow) 95%,
-    var(--surface-bright) 95%,
-    var(--surface-bright) 96%,
-    var(--shadow) 96%,
-    var(--shadow) 97%,
-    var(--outline) 97%,
-    var(--outline) 98%,
-    var(--shadow) 98%,
-    var(--shadow) 99%,
-    var(--primary) 99%,
-    var(--primary) 100%
+    @primary 0%,
+    @primary 1%,
+    @shadow 1%,
+    @shadow 2%,
+    @outline 2%,
+    @outline 3%,
+    @shadow 3%,
+    @shadow 4%,
+    @surface-bright 4%,
+    @surface-bright 5%,
+    @shadow 5%,
+    @shadow 6%,
+    @surface 6%,
+    @surface 7%,
+    @shadow 7%,
+    @shadow 8%,
+    @shadow 93%,
+    @surface 93%,
+    @surface 94%,
+    @shadow 94%,
+    @shadow 95%,
+    @surface-bright 95%,
+    @surface-bright 96%,
+    @shadow 96%,
+    @shadow 97%,
+    @outline 97%,
+    @outline 98%,
+    @shadow 98%,
+    @shadow 99%,
+    @primary 99%,
+    @primary 100%
   );
   border-radius: 0;
 }
 
 #update-button {
-  background-color: var(--primary);
+  background-color: @primary;
   border-radius: 16px;
   padding: 8px 16px;
   font-weight: bold;
@@ -88,20 +88,20 @@
 }
 
 #update-button:hover {
-  background-color: var(--foreground);
+  background-color: @foreground;
   border-radius: 8px;
 }
 
 #update-button:active {
-  background-color: var(--primary);
+  background-color: @primary;
 }
 
 #update-button label {
-  color: var(--shadow);
+  color: @shadow;
 }
 
 #later-button {
-  background-color: var(--surface-bright);
+  background-color: @surface-bright;
   border-radius: 16px;
   padding: 8px 16px;
   font-weight: bold;
@@ -109,16 +109,16 @@
 }
 
 #later-button:hover {
-  background-color: var(--outline);
+  background-color: @outline;
   border-radius: 8px;
 }
 
 #later-button:active {
-  background-color: var(--surface-bright);
+  background-color: @surface-bright;
 }
 
 #toggle-updater-button {
-  background-color: var(--surface-bright);
+  background-color: @surface-bright;
   border-radius: 16px;
   padding: 8px 16px;
   font-weight: bold;
@@ -126,6 +126,6 @@
 }
 
 #toggle-updater-button:hover {
-  background-color: var(--outline);
+  background-color: @outline;
   border-radius: 8px;
 }

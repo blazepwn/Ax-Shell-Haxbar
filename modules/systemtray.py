@@ -56,12 +56,18 @@ class SystemTray(Box):
                         f"Load icon from file failed: {e}; fallback to theme for '{name}'"
                     )
 
+            if not name:
+                logger.debug("Icon name is None or empty, falling back to 'image-missing'")
+                return Gtk.IconTheme.get_default().load_icon(
+                    "image-missing", self.pixel_size, Gtk.IconLookupFlags.FORCE_SIZE
+                )
+
             theme = Gtk.IconTheme.new()
             path = item.get_icon_theme_path()
             if path:
                 theme.prepend_search_path(path)
             return theme.load_icon(name, self.pixel_size, Gtk.IconLookupFlags.FORCE_SIZE)
-        except GLib.Error as e:
+        except (GLib.Error, TypeError) as e:
             logger.debug(f"Icon load error {e}")
             return Gtk.IconTheme.get_default().load_icon(
                 "image-missing", self.pixel_size, Gtk.IconLookupFlags.FORCE_SIZE

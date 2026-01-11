@@ -69,8 +69,9 @@
 
 #date-time {
   background-color: var(--shadow);
-  min-height: 36px;
-  padding: 0 8px;
+  min-height: 48px;
+  padding: 0 12px;
+  font-size: 16px;
 }
 
 #date-time.vertical {
@@ -88,9 +89,10 @@ menu > menuitem > label,
 }
 
 #language {
-  min-height: 36px;
+  min-height: 48px;
   background-color: var(--shadow);
-  padding: 0 8px;
+  padding: 0 12px;
+  font-size: 16px;
 }
 
 #language.invert {
@@ -111,8 +113,9 @@ menu > menuitem > label,
 #htb-ip,
 #target {
   background-color: var(--shadow);
-  min-height: 36px;
-  padding: 0 8px;
+  min-height: 48px;
+  padding: 0 12px;
+  font-size: 16px;
 }
 
 #local-ip.invert,
@@ -138,8 +141,9 @@ menu > menuitem > label,
 
 #weather {
   background-color: var(--shadow);
-  padding: 0 8px;
-  min-height: 36px;
+  padding: 0 12px;
+  min-height: 48px;
+  font-size: 16px;
 }
 
 #weather.invert {
@@ -205,9 +209,9 @@ tooltip > * {
 }
 
 #button-bar {
-  padding: 4px;
-  min-width: 28px;
-  min-height: 28px;
+  padding: 6px;
+  min-width: 36px;
+  min-height: 36px;
   background-color: var(--shadow);
   transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

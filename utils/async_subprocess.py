@@ -114,7 +114,8 @@ def run_command_with_output_async(
                 
         except Exception as e:
             # Schedule error callback on main thread
+            err = e
             if on_error:
-                GLib.idle_add(lambda: (on_error(e), False))
+                GLib.idle_add(lambda: (on_error(err), False))
     
     GLib.Thread.new(thread_name, worker_thread, None)

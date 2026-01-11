@@ -291,7 +291,7 @@ general {{
     col.active_border = rgb($primary)
     col.inactive_border = rgb($surface)
     gaps_in = 10
-    gaps_out = 10
+    gaps_out = 20
     border_size = 2
     layout = dwindle
 }}

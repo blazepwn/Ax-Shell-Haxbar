@@ -17,7 +17,7 @@ from fabric.widgets.scale import Scale
 from fabric.widgets.scrolledwindow import ScrolledWindow
 from fabric.widgets.stack import Stack
 from fabric.widgets.window import Window
-from gi.repository import GdkPixbuf, GLib, Gtk
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk
 from PIL import Image
 
 from .data import (
@@ -38,21 +38,99 @@ class HyprConfGUI(Window):
         super().__init__(
             title="Ax-Shell Settings",
             name="axshell-settings-window",
-            size=(640, 640),
+            size=(900, 700),
+            type_hint=Gdk.WindowTypeHint.DIALOG,
             **kwargs,
         )
 
         self.set_resizable(False)
 
+        # Load CSS
+        # Load CSS with manual variable replacement
+        css_provider = Gtk.CssProvider()
+        base_path = os.path.dirname(__file__)
+        css_path = os.path.join(base_path, "../styles/settings.css")
+        colors_path = os.path.join(base_path, "../styles/colors.css")
+        
+        try:
+            css_content = ""
+            # Parse colors
+            colors = {}
+            if os.path.exists(colors_path):
+                with open(colors_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        # Handle @define-color syntax
+                        if line.startswith("@define-color"):
+                            parts = line.split()
+                            if len(parts) >= 3:
+                                key = parts[1]
+                                val = parts[2].rstrip(";")
+                                colors[f"var(--{key})"] = val
+                        # Handle legacy syntax (just in case)
+                        elif line.startswith("--") and ":" in line:
+                            key, val = line.split(":", 1)
+                            key = key.strip()
+                            val = val.strip().rstrip(";")
+                            colors[f"var({key})"] = val
+            
+            # Read settings CSS and replace vars
+            if os.path.exists(css_path):
+                with open(css_path, "r") as f:
+                    css_content = f.read()
+                
+                # Use regex or simple replace for substituting vars
+                for var, color in colors.items():
+                    css_content = css_content.replace(var, color)
+                
+                # Remove the @import line if present to avoid errors
+                css_content = css_content.replace('@import "colors.css";', '')
+
+                css_provider.load_from_data(css_content.encode("utf-8"))
+                Gtk.StyleContext.add_provider_for_screen(
+                    Gdk.Screen.get_default(),
+                    css_provider,
+                    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+                )
+        except Exception as e:
+            print(f"Error loading CSS: {e}")
+            # Fallback to direct load if possible (though likely to fail loop)
+            if os.path.exists(css_path):
+                try:
+                    css_provider.load_from_path(css_path)
+                    Gtk.StyleContext.add_provider_for_screen(
+                        Gdk.Screen.get_default(),
+                        css_provider,
+                        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+                    )
+                except:
+                    pass
+
+        self.get_style_context().add_class("settings-window")
+
         self.selected_face_icon = None
         self.show_lock_checkbox = show_lock_checkbox
         self.show_idle_checkbox = show_idle_checkbox
 
-        root_box = Box(orientation="v", spacing=10, style="margin: 10px;")
-        self.add(root_box)
+        # Main horizontal container (Split view)
+        main_hbox = Box(orientation="h", spacing=0)
+        self.add(main_hbox)
 
-        main_content_box = Box(orientation="h", spacing=6, v_expand=True, h_expand=True)
-        root_box.add(main_content_box)
+        # --- Sidebar (Left) ---
+        sidebar_box = Box(
+            orientation="v", 
+            spacing=10, 
+            style_classes=["sidebar"],
+            size=(200, -1) # Fixed width for sidebar
+        )
+        main_hbox.add(sidebar_box)
+
+        # Sidebar Title/Header
+        sidebar_header = Label(
+            label="Settings", 
+            style="font-weight: bold; font-size: 18px; padding: 20px;"
+        )
+        sidebar_box.add(sidebar_header)
 
         self.tab_stack = Stack(
             transition_type="slide-up-down",
@@ -67,28 +145,62 @@ class HyprConfGUI(Window):
         self.about_tab_content = self.create_about_tab()
 
         self.tab_stack.add_titled(
-            self.key_bindings_tab_content, "key_bindings", "Key Bindings"
-        )
-        self.tab_stack.add_titled(
             self.appearance_tab_content, "appearance", "Appearance"
         )
         self.tab_stack.add_titled(self.system_tab_content, "system", "System")
+        self.tab_stack.add_titled(
+            self.key_bindings_tab_content, "key_bindings", "Key Bindings"
+        )
         self.tab_stack.add_titled(self.about_tab_content, "about", "About")
 
+        # Sidebar Navigation (StackSwitcher)
         tab_switcher = Gtk.StackSwitcher()
         tab_switcher.set_stack(self.tab_stack)
         tab_switcher.set_orientation(Gtk.Orientation.VERTICAL)
-        main_content_box.add(tab_switcher)
-        main_content_box.add(self.tab_stack)
+        tab_switcher.set_halign(Gtk.Align.FILL)
+        sidebar_box.add(tab_switcher)
 
-        button_box = Box(orientation="h", spacing=10, h_align="end")
-        reset_btn = Button(label="Reset to Defaults", on_clicked=self.on_reset)
-        button_box.add(reset_btn)
+        # Spacer to push buttons to bottom
+        sidebar_box.add(Box(v_expand=True))
+
+        # Action Buttons in Sidebar
+        button_box = Box(orientation="v", spacing=10, style="padding: 15px;")
+        reset_btn = Button(label="Reset Defaults", on_clicked=self.on_reset)
         close_btn = Button(label="Close", on_clicked=self.on_close)
-        button_box.add(close_btn)
         accept_btn = Button(label="Apply & Reload", on_clicked=self.on_accept)
+        # Apply special styles to primary button
+        accept_btn.get_style_context().add_class("suggested-action")
+        
         button_box.add(accept_btn)
-        root_box.add(button_box)
+        button_box.add(reset_btn)
+        button_box.add(close_btn)
+        sidebar_box.add(button_box)
+
+        # --- Content Area (Right) ---
+        content_box = Box(
+            orientation="v", 
+            spacing=0, 
+            h_expand=True, 
+            v_expand=True,
+            style_classes=["content-area"]
+        )
+        main_hbox.add(content_box)
+        content_box.add(self.tab_stack)
+
+    def create_card(self, title, widget_box):
+        """Helper to create a styled card container"""
+        card = Box(orientation="v", spacing=10, style_classes=["card"])
+        
+        if title:
+            title_label = Label(
+                label=title, 
+                h_align="start", 
+                style_classes=["card-title"]
+            )
+            card.add(title_label)
+            
+        card.add(widget_box)
+        return card
 
     def create_key_bindings_tab(self):
         scrolled_window = ScrolledWindow(
@@ -182,454 +294,232 @@ class HyprConfGUI(Window):
             propagate_height=False,
         )
 
-        vbox = Box(orientation="v", spacing=15, style="margin: 15px;")
+        vbox = Box(orientation="v", spacing=20, style="margin: 20px; padding-bottom: 50px;")
         scrolled_window.add(vbox)
 
-        top_grid = Gtk.Grid()
-        top_grid.set_column_spacing(20)
-        top_grid.set_row_spacing(5)
-        top_grid.set_margin_bottom(10)
-        vbox.add(top_grid)
-
-        wall_header = Label(markup="<b>Wallpapers</b>", h_align="start")
-        top_grid.attach(wall_header, 0, 0, 1, 1)
-        wall_label = Label(label="Directory:", h_align="start", v_align="center")
-        top_grid.attach(wall_label, 0, 1, 1, 1)
-
-        chooser_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        chooser_container.set_halign(Gtk.Align.START)
-        chooser_container.set_valign(Gtk.Align.CENTER)
-        self.wall_dir_chooser = Gtk.FileChooserButton(
+        # --- Wallpapers Card ---
+        wall_box = Box(orientation="v", spacing=10)
+        
+        wall_row = Box(orientation="h", spacing=10)
+        wall_label = Label(label="Directory", h_align="start", v_align="center", style_classes=["subtitle"])
+        wall_row.add(wall_label)
+        
+        chooser_btn = Gtk.FileChooserButton(
             title="Select a folder", action=Gtk.FileChooserAction.SELECT_FOLDER
         )
-        self.wall_dir_chooser.set_tooltip_text(
-            "Select the directory containing your wallpaper images"
-        )
-        self.wall_dir_chooser.set_filename(get_bind_var("wallpapers_dir"))
-        self.wall_dir_chooser.set_size_request(180, -1)
-        chooser_container.add(self.wall_dir_chooser)
-        top_grid.attach(chooser_container, 1, 1, 1, 1)
+        chooser_btn.set_filename(get_bind_var("wallpapers_dir"))
+        chooser_btn.set_hexpand(True)
+        self.wall_dir_chooser = chooser_btn
+        wall_row.add(chooser_btn)
+        
+        wall_box.add(wall_row)
+        vbox.add(self.create_card("Wallpapers", wall_box))
 
-        face_header = Label(markup="<b>Profile Icon</b>", h_align="start")
-        top_grid.attach(face_header, 2, 0, 2, 1)
+        # --- Profile & Icon Card ---
+        profile_box = Box(orientation="v", spacing=15)
+        
+        # Profile Icon Row
+        face_row = Box(orientation="h", spacing=10)
+        face_label = Label(label="Profile Image", h_align="start", v_align="center", style_classes=["subtitle"])
+        face_row.add(face_label)
+        face_row.add(Box(h_expand=True)) # Spacer
+
+        self.face_image = FabricImage(size=48)
         current_face = os.path.expanduser("~/.face.icon")
-        face_image_container = Box(
-            style_classes=["image-frame"], h_align="center", v_align="center"
-        )
-        self.face_image = FabricImage(size=64)
         try:
             if os.path.exists(current_face):
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(current_face, 64, 64)
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(current_face, 48, 48)
                 self.face_image.set_from_pixbuf(pixbuf)
             else:
                 self.face_image.set_from_icon_name("user-info", Gtk.IconSize.DIALOG)
-        except Exception as e:
-            print(f"Error loading face icon: {e}")
+        except Exception:
             self.face_image.set_from_icon_name("image-missing", Gtk.IconSize.DIALOG)
-        face_image_container.add(self.face_image)
-        top_grid.attach(face_image_container, 2, 1, 1, 1)
+            
+        face_frame = Box(style_classes=["image-frame"])
+        face_frame.add(self.face_image)
+        face_row.add(face_frame)
+        
+        face_btn = Button(label="Change", on_clicked=self.on_select_face_icon)
+        face_row.add(face_btn)
+        self.face_status_label = Label(label="") # Hidden status
+        profile_box.add(face_row)
+        
+        profile_box.add(Box(style="min-height: 1px; background-color: alpha(currentColor, 0.1);"))
 
-        browse_btn_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        browse_btn_container.set_halign(Gtk.Align.START)
-        browse_btn_container.set_valign(Gtk.Align.CENTER)
-        face_btn = Button(
-            label="Browse...",
-            tooltip_text="Select a square image for your profile icon",
-            on_clicked=self.on_select_face_icon,
-        )
-        browse_btn_container.add(face_btn)
-        top_grid.attach(browse_btn_container, 3, 1, 1, 1)
-        self.face_status_label = Label(label="", h_align="start")
-        top_grid.attach(self.face_status_label, 2, 2, 2, 1)
+        # Launcher Icon Row
+        launcher_row = Box(orientation="h", spacing=10)
+        launcher_label = Label(label="Launcher Icon", h_align="start", v_align="center", style_classes=["subtitle"])
+        launcher_row.add(launcher_label)
+        launcher_row.add(Box(h_expand=True))
 
-        separator1 = Box(
-            style="min-height: 1px; background-color: alpha(@fg_color, 0.2); margin: 5px 0px;",
-            h_expand=True,
-        )
-        vbox.add(separator1)
-
-        # START NEW SECTION FOR DATETIME FORMAT
-        datetime_format_header = Label(
-            markup="<b>Date & Time Format</b>", h_align="start"
-        )
-        vbox.add(datetime_format_header)
-
-        datetime_grid = Gtk.Grid()
-        datetime_grid.set_column_spacing(20)
-        datetime_grid.set_row_spacing(10)
-        datetime_grid.set_margin_start(10)
-        datetime_grid.set_margin_top(5)
-        datetime_grid.set_margin_bottom(10)  # Adds space before the next section
-        vbox.add(datetime_grid)
-
-        datetime_12h_label = Label(
-            label="Use 12-Hour Clock", h_align="start", v_align="center"
-        )
-        datetime_grid.attach(datetime_12h_label, 0, 0, 1, 1)
-
-        datetime_12h_switch_container = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
-        self.datetime_12h_switch = Gtk.Switch(
-            active=get_bind_var("datetime_12h_format")
-        )
-        datetime_12h_switch_container.add(self.datetime_12h_switch)
-        datetime_grid.attach(datetime_12h_switch_container, 1, 0, 1, 1)
-        # END NEW SECTION FOR DATETIME FORMAT
-
-        layout_header = Label(markup="<b>Layout Options</b>", h_align="start")
-        vbox.add(layout_header)
-        layout_grid = Gtk.Grid()
-        layout_grid.set_column_spacing(20)
-        layout_grid.set_row_spacing(10)
-        layout_grid.set_margin_start(10)
-        layout_grid.set_margin_top(5)
-        vbox.add(layout_grid)
-
-        position_label = Label(label="Bar Position", h_align="start", v_align="center")
-        layout_grid.attach(position_label, 0, 0, 1, 1)
-        position_combo_container = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
-        self.position_combo = Gtk.ComboBoxText()
-        self.position_combo.set_tooltip_text("Select the position of the bar")
-        positions = ["Top", "Bottom", "Left", "Right"]
-        for pos in positions:
-            self.position_combo.append_text(pos)
-        current_position = get_bind_var("bar_position")
+        self.launcher_image = FabricImage(size=32)
+        current_launcher_icon = get_bind_var("launcher_icon_path")
         try:
-            self.position_combo.set_active(positions.index(current_position))
-        except ValueError:
-            self.position_combo.set_active(0)
+            if current_launcher_icon and os.path.exists(current_launcher_icon):
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(current_launcher_icon, 32, 32)
+                self.launcher_image.set_from_pixbuf(pixbuf)
+            else:
+                self.launcher_image.set_from_icon_name("view-app-grid-symbolic", Gtk.IconSize.LARGE_TOOLBAR)
+        except Exception:
+            self.launcher_image.set_from_icon_name("image-missing", Gtk.IconSize.LARGE_TOOLBAR)
+            
+        launcher_container = Box(style_classes=["image-frame"])
+        launcher_container.add(self.launcher_image)
+        launcher_row.add(launcher_container)
+        
+        launcher_btn = Button(label="Change", on_clicked=self.on_select_launcher_icon)
+        launcher_row.add(launcher_btn)
+        launcher_reset = Button(label="Reset", on_clicked=self.on_reset_launcher_icon)
+        launcher_row.add(launcher_reset)
+        
+        profile_box.add(launcher_row)
+        vbox.add(self.create_card("Personalization", profile_box))
+
+        # --- Layout Options Card ---
+        layout_box = Box(orientation="v", spacing=12)
+        
+        def add_setting_row(label_text, widget):
+            row = Box(orientation="h", spacing=10)
+            lbl = Label(label=label_text, h_align="start", style_classes=["subtitle"])
+            row.add(lbl)
+            row.add(Box(h_expand=True))
+            row.add(widget)
+            layout_box.add(row)
+            return row
+
+        # Bar Position
+        self.position_combo = Gtk.ComboBoxText()
+        for pos in ["Top", "Bottom", "Left", "Right"]: self.position_combo.append_text(pos)
+        try: self.position_combo.set_active(["Top", "Bottom", "Left", "Right"].index(get_bind_var("bar_position")))
+        except: self.position_combo.set_active(0)
         self.position_combo.connect("changed", self.on_position_changed)
-        position_combo_container.add(self.position_combo)
-        layout_grid.attach(position_combo_container, 1, 0, 1, 1)
+        add_setting_row("Bar Position", self.position_combo)
+        
+        # Centered Bar
+        self.centered_switch = Gtk.Switch(active=get_bind_var("centered_bar"), sensitive=get_bind_var("bar_position") in ["Left", "Right"])
+        add_setting_row("Centered Bar (Vertical)", self.centered_switch)
+        
+        # Bar Theme
+        self.bar_theme_combo = Gtk.ComboBoxText()
+        for theme in ["Pills", "Dense", "Edge"]: self.bar_theme_combo.append_text(theme)
+        try: self.bar_theme_combo.set_active(["Pills", "Dense", "Edge"].index(get_bind_var("bar_theme")))
+        except: self.bar_theme_combo.set_active(0)
+        add_setting_row("Bar Theme", self.bar_theme_combo)
 
-        centered_label = Label(
-            label="Centered Bar (Left/Right Only)", h_align="start", v_align="center"
-        )
-        layout_grid.attach(centered_label, 2, 0, 1, 1)
-        centered_switch_container = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
-        self.centered_switch = Gtk.Switch(
-            active=get_bind_var("centered_bar"),
-            sensitive=get_bind_var("bar_position") in ["Left", "Right"],
-        )
-        centered_switch_container.add(self.centered_switch)
-        layout_grid.attach(centered_switch_container, 3, 0, 1, 1)
+        layout_box.add(Box(style="min-height: 10px;")) # Spacer
 
-        dock_label = Label(label="Show Dock", h_align="start", v_align="center")
-        layout_grid.attach(dock_label, 0, 1, 1, 1)
-        dock_switch_container = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
+        # Dock Settings
         self.dock_switch = Gtk.Switch(active=get_bind_var("dock_enabled"))
         self.dock_switch.connect("notify::active", self.on_dock_enabled_changed)
-        dock_switch_container.add(self.dock_switch)
-        layout_grid.attach(dock_switch_container, 1, 1, 1, 1)
-
-        dock_hover_label = Label(
-            label="Always Show Dock", h_align="start", v_align="center"
-        )
-        layout_grid.attach(dock_hover_label, 2, 1, 1, 1)
-        dock_hover_switch_container = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
-        self.dock_hover_switch = Gtk.Switch(
-            active=get_bind_var("dock_always_show"),
-            sensitive=self.dock_switch.get_active(),
-        )
-        dock_hover_switch_container.add(self.dock_hover_switch)
-        layout_grid.attach(dock_hover_switch_container, 3, 1, 1, 1)
-
-        dock_size_label = Label(
-            label="Dock Icon Size", h_align="start", v_align="center"
-        )
-        layout_grid.attach(dock_size_label, 0, 2, 1, 1)
-        self.dock_size_scale = Scale(
-            min_value=16,
-            max_value=48,
-            value=get_bind_var("dock_icon_size"),
-            increments=(2, 4),
-            draw_value=True,
-            value_position="right",
-            digits=0,
-            h_expand=True,
-        )
-        layout_grid.attach(self.dock_size_scale, 1, 2, 3, 1)
-
-        ws_num_label = Label(
-            label="Show Workspace Numbers", h_align="start", v_align="center"
-        )
-        layout_grid.attach(ws_num_label, 0, 3, 1, 1)
-        ws_num_switch_container = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
-        self.ws_num_switch = Gtk.Switch(
-            active=get_bind_var("bar_workspace_show_number")
-        )
-        self.ws_num_switch.connect("notify::active", self.on_ws_num_changed)
-        ws_num_switch_container.add(self.ws_num_switch)
-        layout_grid.attach(ws_num_switch_container, 1, 3, 1, 1)
-
-        ws_chinese_label = Label(
-            label="Use Chinese Numerals", h_align="start", v_align="center"
-        )
-        layout_grid.attach(ws_chinese_label, 2, 3, 1, 1)
-        ws_chinese_switch_container = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
-        self.ws_chinese_switch = Gtk.Switch(
-            active=get_bind_var("bar_workspace_use_chinese_numerals"),
-            sensitive=self.ws_num_switch.get_active(),
-        )
-        ws_chinese_switch_container.add(self.ws_chinese_switch)
-        layout_grid.attach(ws_chinese_switch_container, 3, 3, 1, 1)
-
-        special_ws_label = Label(
-            label="Hide Special Workspace", h_align="start", v_align="center"
-        )
-        layout_grid.attach(special_ws_label, 0, 4, 1, 1)
-        special_ws_switch_container = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
-        self.special_ws_switch = Gtk.Switch(
-            active=get_bind_var("bar_hide_special_workspace")
-        )
-        special_ws_switch_container.add(self.special_ws_switch)
-        layout_grid.attach(special_ws_switch_container, 1, 4, 1, 1)
-
-        bar_theme_label = Label(label="Bar Theme", h_align="start", v_align="center")
-        layout_grid.attach(bar_theme_label, 0, 5, 1, 1)
-        bar_theme_combo_container = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
-        self.bar_theme_combo = Gtk.ComboBoxText()
-        self.bar_theme_combo.set_tooltip_text("Select the visual theme for the bar")
-        themes = ["Pills", "Dense", "Edge"]
-        for theme in themes:
-            self.bar_theme_combo.append_text(theme)
-        current_theme = get_bind_var("bar_theme")
-        try:
-            self.bar_theme_combo.set_active(themes.index(current_theme))
-        except ValueError:
-            self.bar_theme_combo.set_active(0)
-        bar_theme_combo_container.add(self.bar_theme_combo)
-        layout_grid.attach(bar_theme_combo_container, 1, 5, 3, 1)
-
-        dock_theme_label = Label(label="Dock Theme", h_align="start", v_align="center")
-        layout_grid.attach(dock_theme_label, 0, 6, 1, 1)
-        dock_theme_combo_container = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
+        add_setting_row("Enable Dock", self.dock_switch)
+        
+        self.dock_hover_switch = Gtk.Switch(active=get_bind_var("dock_always_show"), sensitive=self.dock_switch.get_active())
+        add_setting_row("Always Show Dock", self.dock_hover_switch)
+        
         self.dock_theme_combo = Gtk.ComboBoxText()
-        self.dock_theme_combo.set_tooltip_text("Select the visual theme for the dock")
-        for theme in themes:
-            self.dock_theme_combo.append_text(theme)
-        current_dock_theme = get_bind_var("dock_theme")
-        try:
-            self.dock_theme_combo.set_active(themes.index(current_dock_theme))
-        except ValueError:
-            self.dock_theme_combo.set_active(0)
-        dock_theme_combo_container.add(self.dock_theme_combo)
-        layout_grid.attach(dock_theme_combo_container, 1, 6, 3, 1)
+        for theme in ["Pills", "Dense", "Edge"]: self.dock_theme_combo.append_text(theme)
+        try: self.dock_theme_combo.set_active(["Pills", "Dense", "Edge"].index(get_bind_var("dock_theme")))
+        except: self.dock_theme_combo.set_active(0)
+        add_setting_row("Dock Theme", self.dock_theme_combo)
 
-        panel_theme_label = Label(
-            label="Panel Theme", h_align="start", v_align="center"
+        # Dock Size Scale
+        dock_size_row = Box(orientation="v", spacing=5)
+        dock_size_lbl = Label(label="Dock Icon Size", h_align="start", style_classes=["subtitle"])
+        dock_size_row.add(dock_size_lbl)
+        self.dock_size_scale = Scale(
+            min_value=16, max_value=48, value=get_bind_var("dock_icon_size"),
+            increments=(2, 4), draw_value=True, digits=0, h_expand=True
         )
-        layout_grid.attach(panel_theme_label, 0, 7, 1, 1)
-        panel_theme_combo_container = Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
+        dock_size_row.add(self.dock_size_scale)
+        layout_box.add(dock_size_row)
+        
+        vbox.add(self.create_card("Layout & Dock", layout_box))
+
+        # --- Panel & Notifications Card ---
+        panel_box = Box(orientation="v", spacing=12)
+        
+        def add_panel_row(label_text, widget):
+            row = Box(orientation="h", spacing=10)
+            lbl = Label(label=label_text, h_align="start", style_classes=["subtitle"])
+            row.add(lbl)
+            row.add(Box(h_expand=True))
+            row.add(widget)
+            panel_box.add(row)
+
         self.panel_theme_combo = Gtk.ComboBoxText()
-        self.panel_theme_combo.set_tooltip_text(
-            "Select the theme/mode for panels like toolbox, clipboard, etc."
-        )
-        panel_themes = ["Notch", "Panel"]
-        for theme in panel_themes:
-            self.panel_theme_combo.append_text(theme)
-        current_panel_theme = get_bind_var("panel_theme")
-        try:
-            self.panel_theme_combo.set_active(panel_themes.index(current_panel_theme))
-        except ValueError:
-            self.panel_theme_combo.set_active(0)
-        panel_theme_combo_container.add(self.panel_theme_combo)
-        layout_grid.attach(panel_theme_combo_container, 1, 7, 1, 1)
-        self.panel_theme_combo.connect(
-            "changed", self._on_panel_theme_changed_for_position_sensitivity
-        )
-
-        self.panel_position_options = ["Start", "Center", "End"]
-
-        panel_position_label = Label(
-            label="Panel Position", h_align="start", v_align="center"
-        )
-        layout_grid.attach(panel_position_label, 2, 7, 1, 1)
-
-        panel_position_combo_container = Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
+        for theme in ["Notch", "Panel"]: self.panel_theme_combo.append_text(theme)
+        try: self.panel_theme_combo.set_active(["Notch", "Panel"].index(get_bind_var("panel_theme")))
+        except: self.panel_theme_combo.set_active(0)
+        self.panel_theme_combo.connect("changed", self._on_panel_theme_changed_for_position_sensitivity)
+        add_panel_row("Panel Style", self.panel_theme_combo)
+        
         self.panel_position_combo = Gtk.ComboBoxText()
-        self.panel_position_combo.set_tooltip_text(
-            "Select the position for the 'Panel' theme panels"
-        )
-        for option in self.panel_position_options:
-            self.panel_position_combo.append_text(option)
-
-        current_panel_position = get_bind_var("panel_position")
-        try:
-            self.panel_position_combo.set_active(
-                self.panel_position_options.index(current_panel_position)
-            )
-        except ValueError:
-            try:
-                self.panel_position_combo.set_active(
-                    self.panel_position_options.index("Center")
-                )
-            except ValueError:
-                self.panel_position_combo.set_active(0)
-
-        panel_position_combo_container.add(self.panel_position_combo)
-        layout_grid.attach(panel_position_combo_container, 3, 7, 1, 1)
-
-        notification_pos_label = Label(
-            label="Notification Position", h_align="start", v_align="center"
-        )
-        layout_grid.attach(notification_pos_label, 0, 8, 1, 1)
-
-        notification_pos_combo_container = Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
-
+        for option in ["Start", "Center", "End"]: self.panel_position_combo.append_text(option)
+        try: self.panel_position_combo.set_active(["Start", "Center", "End"].index(get_bind_var("panel_position")))
+        except: self.panel_position_combo.set_active(0)
+        self.panel_position_combo.set_sensitive(get_bind_var("panel_theme") == "Panel")
+        add_panel_row("Panel Position", self.panel_position_combo)
+        
         self.notification_pos_combo = Gtk.ComboBoxText()
-        self.notification_pos_combo.set_tooltip_text(
-            "Select where notifications appear on the screen."
-        )
+        for pos in ["Top", "Bottom"]: self.notification_pos_combo.append_text(pos)
+        try: self.notification_pos_combo.set_active(["Top", "Bottom"].index(get_bind_var("notif_pos")))
+        except: self.notification_pos_combo.set_active(0)
+        self.notification_pos_combo.connect("changed", self.on_notification_position_changed)
+        add_panel_row("Notification Position", self.notification_pos_combo)
 
-        notification_positions_list = ["Top", "Bottom"]
-        for pos in notification_positions_list:
-            self.notification_pos_combo.append_text(pos)
-
-        current_notif_pos = get_bind_var("notif_pos")
-        try:
-            self.notification_pos_combo.set_active(
-                notification_positions_list.index(current_notif_pos)
-            )
-        except ValueError:
-            self.notification_pos_combo.set_active(0)
-
-        self.notification_pos_combo.connect(
-            "changed", self.on_notification_position_changed
-        )
-
-        notification_pos_combo_container.add(self.notification_pos_combo)
-        layout_grid.attach(notification_pos_combo_container, 1, 8, 3, 1)
-
-        separator2 = Box(
-            style="min-height: 1px; background-color: alpha(@fg_color, 0.2); margin: 5px 0px;",
-            h_expand=True,
-        )
-        vbox.add(separator2)
-
-        components_header = Label(markup="<b>Modules</b>", h_align="start")
-        vbox.add(components_header)
-        components_grid = Gtk.Grid()
-        components_grid.set_column_spacing(15)
-        components_grid.set_row_spacing(8)
-        components_grid.set_margin_start(10)
-        components_grid.set_margin_top(5)
-        vbox.add(components_grid)
-
+        vbox.add(self.create_card("Panels & Popups", panel_box))
+        
+        # --- Modules Grid Card ---
+        modules_box = Box(orientation="v", spacing=10)
+        
+        # Grid for toggles
+        mod_grid = Gtk.Grid()
+        mod_grid.set_column_spacing(20)
+        mod_grid.set_row_spacing(10)
+        
         self.component_switches = {}
         component_display_names = {
-            "button_apps": "App Launcher Button",
-            "systray": "System Tray",
-            "control": "Control Panel",
-            "network": "Network Applet",
-            "local_ip": "Local IP",
-            "htb_ip": "HTB VPN",
-            "button_tools": "Toolbox Button",
-            "sysprofiles": "Powerprofiles Switcher",
-            "button_overview": "Overview Button",
-            "ws_container": "Workspaces",
-            "weather": "Weather Widget",
-            "battery": "Battery Indicator",
-            "metrics": "System Metrics",
-            "target": "Target",
-            "language": "Language Indicator",
-            "date_time": "Date & Time",
-            "button_power": "Power Button",
+            "button_apps": "App Launcher", "systray": "System Tray", "control": "Control Panel",
+            "network": "Network", "local_ip": "Local IP", "htb_ip": "HTB VPN",
+            "button_tools": "Toolbox", "button_overview": "Overview", "ws_container": "Workspaces",
+            "weather": "Weather", "battery": "Battery", "metrics": "Metrics", "target": "Target",
+            "language": "Language", "date_time": "Date & Time", "button_power": "Power",
+            "sysprofiles": "Profiles"
         }
-
+        
+        # Add corners switch first
+        corners_label = Label(label="Rounded Corners", h_align="start", style_classes=["subtitle"])
+        mod_grid.attach(corners_label, 0, 0, 1, 1)
         self.corners_switch = Gtk.Switch(active=get_bind_var("corners_visible"))
-        num_components = len(component_display_names) + 1
-        rows_per_column = (num_components + 1) // 2
-
-        corners_label = Label(
-            label="Rounded Corners", h_align="start", v_align="center"
-        )
-        components_grid.attach(corners_label, 0, 0, 1, 1)
-        switch_container_corners = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            halign=Gtk.Align.START,
-            valign=Gtk.Align.CENTER,
-        )
-        switch_container_corners.add(self.corners_switch)
-        components_grid.attach(switch_container_corners, 1, 0, 1, 1)
-
-        current_row = 0
-        current_col = 0
-        item_idx = 0
-        for i, (name, display) in enumerate(component_display_names.items()):
-            if item_idx < (rows_per_column - 1):
-                row = item_idx + 1
+        mod_grid.attach(self.corners_switch, 1, 0, 1, 1)
+        
+        row, col = 1, 0
+        for name, display in component_display_names.items():
+            if col > 2: # Max 2 columns (0,1 and 2,3)
                 col = 0
-            else:
-                row = item_idx - (rows_per_column - 1)
-                col = 2
+                row += 1
+            
+            lbl = Label(label=display, h_align="start", style_classes=["subtitle"])
+            mod_grid.attach(lbl, col, row, 1, 1)
+            
+            sw = Gtk.Switch(active=get_bind_var(f"bar_{name}_visible"))
+            mod_grid.attach(sw, col+1, row, 1, 1)
+            self.component_switches[name] = sw
+            
+            col += 2
+            
+        modules_box.add(mod_grid)
+        vbox.add(self.create_card("Active Modules", modules_box))
+        
+        # --- Date & Time Format ---
+        dt_box = Box(orientation="h", spacing=10)
+        dt_label = Label(label="12-Hour Clock Format", h_align="start", style_classes=["subtitle"])
+        dt_box.add(dt_label)
+        dt_box.add(Box(h_expand=True))
+        self.datetime_12h_switch = Gtk.Switch(active=get_bind_var("datetime_12h_format"))
+        dt_box.add(self.datetime_12h_switch)
+        vbox.add(self.create_card("Date & Time", dt_box))
 
-            component_label = Label(label=display, h_align="start", v_align="center")
-            components_grid.attach(component_label, col, row, 1, 1)
-
-            switch_container = Gtk.Box(
-                orientation=Gtk.Orientation.HORIZONTAL,
-                halign=Gtk.Align.START,
-                valign=Gtk.Align.CENTER,
-            )
-            component_switch = Gtk.Switch(active=get_bind_var(f"bar_{name}_visible"))
-            switch_container.add(component_switch)
-            components_grid.attach(switch_container, col + 1, row, 1, 1)
-            self.component_switches[name] = component_switch
-            item_idx += 1
-
-        self._update_panel_position_sensitivity()
         return scrolled_window
 
     def _on_panel_theme_changed_for_position_sensitivity(self, combo):
@@ -684,6 +574,32 @@ class HyprConfGUI(Window):
         )
         auto_append_switch_container.add(self.auto_append_switch)
         system_grid.attach(auto_append_switch_container, 1, 0, 1, 1)
+
+        # OVPN Path - New Option
+        ovpn_header = Label(markup="<b>VPN Configuration</b>", h_align="start")
+        system_grid.attach(ovpn_header, 2, 0, 2, 1) # Right column
+
+        ovpn_label = Label(
+            label="OVPN Directory:", h_align="start", v_align="center"
+        )
+        system_grid.attach(ovpn_label, 2, 1, 1, 1)
+
+        ovpn_chooser_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        ovpn_chooser_container.set_halign(Gtk.Align.START)
+        ovpn_chooser_container.set_valign(Gtk.Align.CENTER)
+        self.ovpn_dir_chooser = Gtk.FileChooserButton(
+            title="Select VPN Config Folder", action=Gtk.FileChooserAction.SELECT_FOLDER
+        )
+        self.ovpn_dir_chooser.set_tooltip_text(
+            "Select the directory containing your .ovpn files"
+        )
+        self.ovpn_dir_chooser.set_filename(get_bind_var("ovpn_path"))
+        self.ovpn_dir_chooser.set_size_request(180, -1)
+        # Connect signal to update bind_var immediately or on apply
+        self.ovpn_dir_chooser.connect("file-set", self.on_ovpn_dir_set)
+        
+        ovpn_chooser_container.add(self.ovpn_dir_chooser)
+        system_grid.attach(ovpn_chooser_container, 3, 1, 1, 1)
 
         # Monitor Selection - second option
         monitor_header = Label(markup="<b>Monitor Selection</b>", h_align="start")
@@ -1007,6 +923,45 @@ class HyprConfGUI(Window):
         if not is_active:
             self.dock_hover_switch.set_active(False)
 
+    def on_select_launcher_icon(self, button):
+        dialog = Gtk.FileChooserDialog(
+            title="Select Launcher Icon",
+            parent=self,
+            action=Gtk.FileChooserAction.OPEN,
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL,
+            Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OPEN,
+            Gtk.ResponseType.OK,
+        )
+
+        filter_image = Gtk.FileFilter()
+        filter_image.set_name("Images")
+        filter_image.add_mime_type("image/png")
+        filter_image.add_mime_type("image/jpeg")
+        filter_image.add_mime_type("image/svg+xml")
+        dialog.add_filter(filter_image)
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            filename = dialog.get_filename()
+            bind_vars["launcher_icon_path"] = filename
+            
+            # Update preview
+            try:
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(filename, 32, 32)
+                self.launcher_image.set_from_pixbuf(pixbuf)
+                print(f"Selected launcher icon: {filename}")
+            except Exception as e:
+                print(f"Error loading preview: {e}")
+                
+        dialog.destroy()
+
+    def on_reset_launcher_icon(self, button):
+        bind_vars["launcher_icon_path"] = None
+        self.launcher_image.set_from_icon_name("view-app-grid-symbolic", Gtk.IconSize.LARGE_TOOLBAR)
+
     def on_select_face_icon(self, widget):
         dialog = Gtk.FileChooserDialog(
             title="Select Face Icon",
@@ -1041,275 +996,294 @@ class HyprConfGUI(Window):
                 self.face_image.set_from_icon_name("image-missing", Gtk.IconSize.DIALOG)
         dialog.destroy()
 
+
     def on_accept(self, widget):
-        current_bind_vars_snapshot = {}
-        for prefix_key, suffix_key, prefix_entry, suffix_entry in self.entries:
-            current_bind_vars_snapshot[prefix_key] = prefix_entry.get_text()
-            current_bind_vars_snapshot[suffix_key] = suffix_entry.get_text()
-
-        current_bind_vars_snapshot["wallpapers_dir"] = (
-            self.wall_dir_chooser.get_filename()
-        )
-
-        current_bind_vars_snapshot["bar_position"] = (
-            self.position_combo.get_active_text()
-        )
-        current_bind_vars_snapshot["vertical"] = current_bind_vars_snapshot[
-            "bar_position"
-        ] in ["Left", "Right"]
-
-        current_bind_vars_snapshot["centered_bar"] = self.centered_switch.get_active()
-        current_bind_vars_snapshot["datetime_12h_format"] = (
-            self.datetime_12h_switch.get_active()
-        )
-        current_bind_vars_snapshot["dock_enabled"] = self.dock_switch.get_active()
-        current_bind_vars_snapshot["dock_always_show"] = (
-            self.dock_hover_switch.get_active()
-        )
-        current_bind_vars_snapshot["dock_icon_size"] = int(self.dock_size_scale.value)
-        current_bind_vars_snapshot["terminal_command"] = self.terminal_entry.get_text()
-        current_bind_vars_snapshot["auto_append_hyprland"] = (
-            self.auto_append_switch.get_active()
-        )
-        current_bind_vars_snapshot["corners_visible"] = self.corners_switch.get_active()
-        current_bind_vars_snapshot["bar_workspace_show_number"] = (
-            self.ws_num_switch.get_active()
-        )
-        current_bind_vars_snapshot["bar_workspace_use_chinese_numerals"] = (
-            self.ws_chinese_switch.get_active()
-        )
-        current_bind_vars_snapshot["bar_hide_special_workspace"] = (
-            self.special_ws_switch.get_active()
-        )
-        current_bind_vars_snapshot["bar_theme"] = self.bar_theme_combo.get_active_text()
-        current_bind_vars_snapshot["dock_theme"] = (
-            self.dock_theme_combo.get_active_text()
-        )
-        current_bind_vars_snapshot["panel_theme"] = (
-            self.panel_theme_combo.get_active_text()
-        )
-        current_bind_vars_snapshot["panel_position"] = (
-            self.panel_position_combo.get_active_text()
-        )
-        selected_notif_pos_text = self.notification_pos_combo.get_active_text()
-        if selected_notif_pos_text:
-            current_bind_vars_snapshot["notif_pos"] = selected_notif_pos_text
-        else:
-            current_bind_vars_snapshot["notif_pos"] = "Top"
-
-        for component_name, switch in self.component_switches.items():
-            current_bind_vars_snapshot[f"bar_{component_name}_visible"] = (
-                switch.get_active()
-            )
-
-        current_bind_vars_snapshot["metrics_visible"] = {
-            k: s.get_active() for k, s in self.metrics_switches.items()
-        }
-        current_bind_vars_snapshot["metrics_small_visible"] = {
-            k: s.get_active() for k, s in self.metrics_small_switches.items()
-        }
-        current_bind_vars_snapshot["bar_metrics_disks"] = [
-            child.get_children()[0].get_text()
-            for child in self.disk_entries.get_children()
-            if isinstance(child, Gtk.Box)
-            and child.get_children()
-            and isinstance(child.get_children()[0], Entry)
-        ]
-
-        # Parse notification app lists
-        def parse_app_list(text):
-            """Parse comma-separated app names with quotes"""
-            if not text.strip():
-                return []
-            apps = []
-            for app in text.split(","):
-                app = app.strip()
-                if app.startswith('"') and app.endswith('"'):
-                    app = app[1:-1]
-                elif app.startswith("'") and app.endswith("'"):
-                    app = app[1:-1]
-                if app:
-                    apps.append(app)
-            return apps
-
-        current_bind_vars_snapshot["limited_apps_history"] = parse_app_list(
-            self.limited_apps_entry.get_text()
-        )
-        current_bind_vars_snapshot["history_ignored_apps"] = parse_app_list(
-            self.ignored_apps_entry.get_text()
-        )
-
-        # Save monitor selection
-        selected_monitors = []
-        any_checked = False
-        for monitor_name, checkbox in self.monitor_checkboxes.items():
-            if checkbox.get_active():
-                selected_monitors.append(monitor_name)
-                any_checked = True
-
-        # If no monitors are checked, use empty array (means show on all monitors)
-        current_bind_vars_snapshot["selected_monitors"] = (
-            selected_monitors if any_checked else []
-        )
-
-        selected_icon_path = self.selected_face_icon
-        replace_lock = self.lock_switch and self.lock_switch.get_active()
-        replace_idle = self.idle_switch and self.idle_switch.get_active()
-
-        if self.selected_face_icon:
-            self.selected_face_icon = None
-            self.face_status_label.label = ""
-
-        def _apply_and_reload_task_thread(user_data):
-            nonlocal current_bind_vars_snapshot
-
-            from . import settings_utils
-
-            settings_utils.bind_vars.clear()
-            settings_utils.bind_vars.update(current_bind_vars_snapshot)
-
-            start_time = time.time()
-            print(f"{start_time:.4f}: Background task started.")
-
-            config_json = os.path.expanduser(
-                f"~/.config/{APP_NAME_CAP}/config/config.json"
-            )
-            os.makedirs(os.path.dirname(config_json), exist_ok=True)
-            try:
-                with open(config_json, "w") as f:
-                    json.dump(settings_utils.bind_vars, f, indent=4)
-                print(f"{time.time():.4f}: Saved config.json.")
-            except Exception as e:
-                print(f"Error saving config.json: {e}")
-
-            if selected_icon_path:
-                print(f"{time.time():.4f}: Processing face icon...")
-                try:
-                    img = Image.open(selected_icon_path)
-                    side = min(img.size)
-                    left = (img.width - side) // 2
-                    top = (img.height - side) // 2
-                    cropped_img = img.crop((left, top, left + side, top + side))
-                    face_icon_dest = os.path.expanduser("~/.face.icon")
-                    cropped_img.save(face_icon_dest, format="PNG")
-                    print(f"{time.time():.4f}: Face icon saved to {face_icon_dest}")
-                    GLib.idle_add(self._update_face_image_widget, face_icon_dest)
-                except Exception as e:
-                    print(f"Error processing face icon: {e}")
-                print(f"{time.time():.4f}: Finished processing face icon.")
-
-            if replace_lock:
-                print(f"{time.time():.4f}: Replacing hyprlock config...")
-                src = os.path.expanduser(
-                    f"~/.config/{APP_NAME_CAP}/config/hypr/hyprlock.conf"
-                )
-                dest = os.path.expanduser("~/.config/hypr/hyprlock.conf")
-                if os.path.exists(src):
-                    backup_and_replace(src, dest, "Hyprlock")
-                else:
-                    print(f"Warning: Source hyprlock config not found at {src}")
-                print(f"{time.time():.4f}: Finished replacing hyprlock config.")
-
-            if replace_idle:
-                print(f"{time.time():.4f}: Replacing hypridle config...")
-                src = os.path.expanduser(
-                    f"~/.config/{APP_NAME_CAP}/config/hypr/hypridle.conf"
-                )
-                dest = os.path.expanduser("~/.config/hypr/hypridle.conf")
-                if os.path.exists(src):
-                    backup_and_replace(src, dest, "Hypridle")
-                else:
-                    print(f"Warning: Source hypridle config not found at {src}")
-                print(f"{time.time():.4f}: Finished replacing hypridle config.")
-
-            print(
-                f"{time.time():.4f}: Checking/Appending hyprland.conf source string..."
-            )
-            hypr_path = os.path.expanduser("~/.config/hypr/hyprland.conf")
-            try:
-                from .settings_constants import SOURCE_STRING
-
-                # Check if auto-append is enabled
-                auto_append_enabled = current_bind_vars_snapshot.get(
-                    "auto_append_hyprland", True
-                )
-                if auto_append_enabled:
-                    needs_append = True
-                    if os.path.exists(hypr_path):
-                        with open(hypr_path, "r") as f:
-                            if SOURCE_STRING.strip() in f.read():
-                                needs_append = False
-                    else:
-                        os.makedirs(os.path.dirname(hypr_path), exist_ok=True)
-
-                    if needs_append:
-                        with open(hypr_path, "a") as f:
-                            f.write("\n" + SOURCE_STRING)
-                        print(f"Appended source string to {hypr_path}")
-                    else:
-                        print("Source string already present in hyprland.conf")
-                else:
-                    print("Auto-append to hyprland.conf is disabled")
-            except Exception as e:
-                print(f"Error updating {hypr_path}: {e}")
-            print(
-                f"{time.time():.4f}: Finished checking/appending hyprland.conf source string."
-            )
-
-            print(f"{time.time():.4f}: Running start_config()...")
-            start_config()
-            print(f"{time.time():.4f}: Finished start_config().")
-
-            print(f"{time.time():.4f}: Initiating Ax-Shell restart using Popen...")
-            main_py = os.path.expanduser(f"~/.config/{APP_NAME_CAP}/main.py")
-            kill_cmd = f"killall {APP_NAME}"
-            start_cmd = ["uwsm", "app", "--", "python", main_py]
-            try:
-                kill_proc = subprocess.Popen(
-                    kill_cmd,
-                    shell=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                kill_proc.wait(timeout=2)
-                print(f"{time.time():.4f}: killall process finished (o timed out).")
-            except subprocess.TimeoutExpired:
-                print("Warning: killall command timed out.")
-            except Exception as e:
-                print(f"Error running killall: {e}")
-
-            try:
-                subprocess.Popen(
-                    start_cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    start_new_session=True,
-                )
-                print(f"{APP_NAME_CAP} restart initiated via Popen.")
-            except FileNotFoundError as e:
-                print(f"Error restarting {APP_NAME_CAP}: Command not found ({e})")
-            except Exception as e:
-                print(f"Error restarting {APP_NAME_CAP} via Popen: {e}")
-
-            print(f"{time.time():.4f}: Ax-Shell restart commands issued via Popen.")
-            end_time = time.time()
-            print(
-                f"{end_time:.4f}: Background task finished (Total: {end_time - start_time:.4f}s)."
-            )
-
-        GLib.Thread.new("apply-reload-task", _apply_and_reload_task_thread, None)
-        print("Configuration apply/reload task started in background.")
-
-    def _update_face_image_widget(self, icon_path):
+        print(f"{time.time():.4f}: DEBUG: on_accept called")
         try:
-            if self.face_image and self.face_image.get_window():
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(icon_path, 64, 64)
-                self.face_image.set_from_pixbuf(pixbuf)
+            current_bind_vars_snapshot = {}
+
+            # Save key bindings
+            for prefix_key, suffix_key, prefix_entry, suffix_entry in self.entries:
+                current_bind_vars_snapshot[prefix_key] = prefix_entry.get_text()
+                current_bind_vars_snapshot[suffix_key] = suffix_entry.get_text()
+
+            # Save appearance settings
+            current_bind_vars_snapshot["wallpapers_dir"] = (
+                self.wall_dir_chooser.get_filename()
+            )
+            current_bind_vars_snapshot["launcher_icon_path"] = bind_vars.get("launcher_icon_path")
+
+            current_bind_vars_snapshot["bar_position"] = self.position_combo.get_active_text()
+            current_bind_vars_snapshot["centered_bar"] = self.centered_switch.get_active()
+            current_bind_vars_snapshot["dock_enabled"] = self.dock_switch.get_active()
+            current_bind_vars_snapshot["dock_always_show"] = (
+                self.dock_hover_switch.get_active()
+            )
+            current_bind_vars_snapshot["dock_icon_size"] = int(
+                self.dock_size_scale.get_value()
+            )
+            current_bind_vars_snapshot["terminal_command"] = (
+                self.terminal_entry.get_text()
+            ) if hasattr(self, "terminal_entry") else bind_vars.get("terminal_command", "kitty")
+
+            current_bind_vars_snapshot["auto_append_hyprland"] = (
+                self.auto_append_switch.get_active()
+            )
+            current_bind_vars_snapshot["bar_workspace_show_number"] = (
+                self.ws_num_switch.get_active()
+            ) if hasattr(self, "ws_num_switch") else bind_vars.get("bar_workspace_show_number", True)
+            
+            current_bind_vars_snapshot["bar_workspace_use_chinese_numerals"] = (
+                self.ws_chinese_switch.get_active()
+            ) if hasattr(self, "ws_chinese_switch") else bind_vars.get("bar_workspace_use_chinese_numerals", False)
+            
+            current_bind_vars_snapshot["bar_hide_special_workspace"] = (
+                self.special_ws_switch.get_active()
+            ) if hasattr(self, "special_ws_switch") else bind_vars.get("bar_hide_special_workspace", False)
+            
+            current_bind_vars_snapshot["ovpn_path"] = self.ovpn_dir_chooser.get_filename()
+
+            current_bind_vars_snapshot["bar_theme"] = self.bar_theme_combo.get_active_text()
+            current_bind_vars_snapshot["dock_theme"] = self.dock_theme_combo.get_active_text()
+            current_bind_vars_snapshot["panel_theme"] = (
+                self.panel_theme_combo.get_active_text()
+            )
+            current_bind_vars_snapshot["panel_position"] = (
+                self.panel_position_combo.get_active_text()
+            )
+            current_bind_vars_snapshot["datetime_12h_format"] = (
+                self.datetime_12h_switch.get_active()
+            )
+
+            selected_notif_pos_text = self.notification_pos_combo.get_active_text()
+            if selected_notif_pos_text:
+                current_bind_vars_snapshot["notif_pos"] = selected_notif_pos_text
+            else:
+                current_bind_vars_snapshot["notif_pos"] = "Top"
+
+            for component_name, switch in self.component_switches.items():
+                current_bind_vars_snapshot[f"bar_{component_name}_visible"] = (
+                    switch.get_active()
+                )
+
+            if hasattr(self, "metrics_switches"):
+                current_bind_vars_snapshot["metrics_visible"] = {
+                    k: s.get_active() for k, s in self.metrics_switches.items()
+                }
+            else:
+                current_bind_vars_snapshot["metrics_visible"] = bind_vars.get("metrics_visible", {})
+
+            if hasattr(self, "metrics_small_switches"):
+                current_bind_vars_snapshot["metrics_small_visible"] = {
+                    k: s.get_active() for k, s in self.metrics_small_switches.items()
+                }
+            else:
+                current_bind_vars_snapshot["metrics_small_visible"] = bind_vars.get("metrics_small_visible", {})
+
+            if hasattr(self, "disk_entries"):
+                current_bind_vars_snapshot["bar_metrics_disks"] = [
+                    child.get_children()[0].get_text()
+                    for child in self.disk_entries.get_children()
+                    if isinstance(child, Gtk.Box)
+                    and child.get_children()
+                    and isinstance(child.get_children()[0], Entry)
+                ]
+            else:
+                current_bind_vars_snapshot["bar_metrics_disks"] = bind_vars.get("bar_metrics_disks", [])
+
+            current_bind_vars_snapshot["corners_visible"] = self.corners_switch.get_active()
+
+            # Parse notification app lists
+            def parse_app_list(text):
+                """Parse comma-separated app names with quotes"""
+                if not text.strip():
+                    return []
+                apps = []
+                for app in text.split(","):
+                    app = app.strip()
+                    if app.startswith('"') and app.endswith('"'):
+                        app = app[1:-1]
+                    elif app.startswith("'") and app.endswith("'"):
+                        app = app[1:-1]
+                    if app:
+                        apps.append(app)
+                return apps
+
+            current_bind_vars_snapshot["limited_apps_history"] = parse_app_list(
+                self.limited_apps_entry.get_text()
+            )
+            current_bind_vars_snapshot["history_ignored_apps"] = parse_app_list(
+                self.ignored_apps_entry.get_text()
+            )
+
+            # Save monitor selection
+            selected_monitors = []
+            any_checked = False
+            for monitor_name, checkbox in self.monitor_checkboxes.items():
+                if checkbox.get_active():
+                    selected_monitors.append(monitor_name)
+                    any_checked = True
+
+            current_bind_vars_snapshot["selected_monitors"] = (
+                selected_monitors if any_checked else []
+            )
+
+            selected_icon_path = self.selected_face_icon
+            replace_lock = self.lock_switch and self.lock_switch.get_active() if hasattr(self, "lock_switch") else False
+            replace_idle = self.idle_switch and self.idle_switch.get_active() if hasattr(self, "idle_switch") else False
+
+            if self.selected_face_icon:
+                self.selected_face_icon = None
+                self.face_status_label.label = ""
+
+            def _apply_and_reload_task_thread(user_data):
+                nonlocal current_bind_vars_snapshot
+
+                from . import settings_utils
+
+                settings_utils.bind_vars.clear()
+                settings_utils.bind_vars.update(current_bind_vars_snapshot)
+
+                start_time = time.time()
+                print(f"{start_time:.4f}: Background task started.")
+
+                config_json = os.path.expanduser(
+                    f"~/.config/{APP_NAME_CAP}/config/config.json"
+                )
+                os.makedirs(os.path.dirname(config_json), exist_ok=True)
+                try:
+                    with open(config_json, "w") as f:
+                        json.dump(settings_utils.bind_vars, f, indent=4)
+                    print(f"{time.time():.4f}: Saved config.json.")
+                except Exception as e:
+                    print(f"Error saving config.json: {e}")
+
+                if selected_icon_path:
+                    print(f"{time.time():.4f}: Processing face icon...")
+                    try:
+                        img = Image.open(selected_icon_path)
+                        side = min(img.size)
+                        left = (img.width - side) // 2
+                        top = (img.height - side) // 2
+                        cropped_img = img.crop((left, top, left + side, top + side))
+                        face_icon_dest = os.path.expanduser("~/.face.icon")
+                        cropped_img.save(face_icon_dest, format="PNG")
+                        print(f"{time.time():.4f}: Face icon saved to {face_icon_dest}")
+                        GLib.idle_add(self._update_face_image_widget, face_icon_dest)
+                    except Exception as e:
+                        print(f"Error processing face icon: {e}")
+
+                if replace_lock:
+                    print(f"{time.time():.4f}: Replacing hyprlock config...")
+                    src = os.path.expanduser(
+                        f"~/.config/{APP_NAME_CAP}/config/hypr/hyprlock.conf"
+                    )
+                    dest = os.path.expanduser("~/.config/hypr/hyprlock.conf")
+                    if os.path.exists(src):
+                        backup_and_replace(src, dest, "Hyprlock")
+                    else:
+                        print(f"Warning: Source hyprlock config not found at {src}")
+                    print(f"{time.time():.4f}: Finished replacing hyprlock config.")
+
+                if replace_idle:
+                    print(f"{time.time():.4f}: Replacing hypridle config...")
+                    src = os.path.expanduser(
+                        f"~/.config/{APP_NAME_CAP}/config/hypr/hypridle.conf"
+                    )
+                    dest = os.path.expanduser("~/.config/hypr/hypridle.conf")
+                    if os.path.exists(src):
+                        backup_and_replace(src, dest, "Hypridle")
+                    else:
+                        print(f"Warning: Source hypridle config not found at {src}")
+                    print(f"{time.time():.4f}: Finished replacing hypridle config.")
+
+                print(
+                    f"{time.time():.4f}: Checking/Appending hyprland.conf source string..."
+                )
+                hypr_path = os.path.expanduser("~/.config/hypr/hyprland.conf")
+                try:
+                    from .settings_constants import SOURCE_STRING
+
+                    # Check if auto-append is enabled
+                    auto_append_enabled = current_bind_vars_snapshot.get(
+                        "auto_append_hyprland", True
+                    )
+                    if auto_append_enabled:
+                        needs_append = True
+                        if os.path.exists(hypr_path):
+                            with open(hypr_path, "r") as f:
+                                if SOURCE_STRING.strip() in f.read():
+                                    needs_append = False
+                        else:
+                            os.makedirs(os.path.dirname(hypr_path), exist_ok=True)
+
+                        if needs_append:
+                            with open(hypr_path, "a") as f:
+                                f.write("\n" + SOURCE_STRING)
+                            print(f"Appended source string to {hypr_path}")
+                        else:
+                            print("Source string already present in hyprland.conf")
+                    else:
+                        print("Auto-append to hyprland.conf is disabled")
+                except Exception as e:
+                    print(f"Error updating {hypr_path}: {e}")
+                print(
+                    f"{time.time():.4f}: Finished checking/appending hyprland.conf source string."
+                )
+
+                print(f"{time.time():.4f}: Running start_config()...")
+                start_config()
+                print(f"{time.time():.4f}: Finished start_config().")
+
+                print(f"{time.time():.4f}: Initiating Ax-Shell restart using Popen...")
+                main_py = os.path.expanduser(f"~/.config/{APP_NAME_CAP}/main.py")
+                kill_cmd = f"killall {APP_NAME}"
+                start_cmd = ["uwsm", "app", "--", "python", main_py]
+                try:
+                    kill_proc = subprocess.Popen(
+                        kill_cmd,
+                        shell=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    kill_proc.wait(timeout=2)
+                    print(f"{time.time():.4f}: killall process finished (o timed out).")
+                except subprocess.TimeoutExpired:
+                    print("Warning: killall command timed out.")
+                except Exception as e:
+                    print(f"Error running killall: {e}")
+
+                try:
+                    subprocess.Popen(
+                        start_cmd,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True,
+                    )
+                    print(f"{APP_NAME_CAP} restart initiated via Popen.")
+                except FileNotFoundError as e:
+                    print(f"Error restarting {APP_NAME_CAP}: Command not found ({e})")
+                except Exception as e:
+                    print(f"Error restarting {APP_NAME_CAP} via Popen: {e}")
+
+                print(f"{time.time():.4f}: Ax-Shell restart commands issued via Popen.")
+                end_time = time.time()
+                print(
+                    f"{end_time:.4f}: Background task finished (Total: {end_time - start_time:.4f}s)."
+                )
+
+            GLib.Thread.new("apply-reload-task", _apply_and_reload_task_thread, None)
+            print("Configuration apply/reload task started in background.")
+
         except Exception as e:
-            print(f"Error reloading face icon preview: {e}")
-            if self.face_image and self.face_image.get_window():
-                self.face_image.set_from_icon_name("image-missing", Gtk.IconSize.DIALOG)
-        return GLib.SOURCE_REMOVE
+            print(f"ERROR in on_accept: {e}")
+            import traceback
+            traceback.print_exc()
+    def on_ovpn_dir_set(self, widget):
+        folder = widget.get_filename()
+        if folder:
+            bind_vars["ovpn_path"] = folder
+            print(f"OVPN path updated: {folder}")
 
     def on_reset(self, widget):
         dialog = Gtk.MessageDialog(

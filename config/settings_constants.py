@@ -103,4 +103,6 @@ DEFAULTS = {
     "limited_apps_history": ["Spotify"],
     "history_ignored_apps": ["Hyprshot"],
     "selected_monitors": [],
+    "ovpn_path": get_relative_path("~/vpn"),
+    "launcher_icon_path": None,
 }
