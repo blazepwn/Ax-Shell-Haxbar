@@ -113,7 +113,7 @@ class Notch(Window):
 
         default_top_anchor_margin_str = "-48px 0px 0px 0px"
         pills_margin_top_str = "-48px 0px 0px 0px"
-        dense_edge_margin_top_str = "-54px 0px 0px 0px"
+        dense_edge_margin_top_str = "-48px 0px 0px 0px"
         current_margin_str = ""
 
         if data.PANEL_THEME == "Panel":
@@ -137,7 +137,7 @@ class Notch(Window):
             name="notch",
             layer="overlay",
             anchor=anchor_val,
-            margin="-48px 0px 0px 0px",          # CAMBIO 1: Volver al margen negativo para subirla
+            margin="-52px 0px 0px 0px",          # CAMBIO 1: Volver al margen negativo para subirla
             keyboard_mode="none",
             exclusivity="none",                  # CAMBIO 2: Mantener "none" para permitir el solapamiento
             visible=True,
