@@ -53,8 +53,8 @@ curl -fsSL https://raw.githubusercontent.com/Axenide/Ax-Shell/main/install.sh | 
 1. Install dependencies:
     - [Fabric](https://github.com/Fabric-Development/fabric)
     - [fabric-cli](https://github.com/Fabric-Development/fabric-cli)
-    - [Gray](https://github.com/Fabric-Development/gray)
-    - [Matugen](https://github.com/InioX/matugen)
+    - [Gray](https://github.com/Fabric-Development/gray) (via `gray-git`)
+    - [Matugen](https://github.com/InioX/matugen) (via `matugen-bin`)
     - `awww`
     - `brightnessctl`
     - `cava`
@@ -63,7 +63,6 @@ curl -fsSL https://raw.githubusercontent.com/Axenide/Ax-Shell/main/install.sh | 
     - `gnome-bluetooth-3.0`
     - `gobject-introspection`
     - `gpu-screen-recorder`
-    - `grimblast`
     - `hypridle`
     - `hyprlock`
     - `hyprpicker`
@@ -77,11 +76,13 @@ curl -fsSL https://raw.githubusercontent.com/Axenide/Ax-Shell/main/install.sh | 
     - `noto-fonts-emoji`
     - `nvtop`
     - `playerctl`
+    - `power-profiles-daemon`
     - `swappy`
     - `tesseract`
     - `tesseract-data-eng`
     - `tesseract-data-spa`
     - `tmux`
+    - `ttf-nerd-fonts-symbols-mono`
     - `unzip`
     - `upower`
     - `uwsm`
@@ -89,16 +90,17 @@ curl -fsSL https://raw.githubusercontent.com/Axenide/Ax-Shell/main/install.sh | 
     - `webp-pixbuf-loader`
     - `wl-clipboard`
     - Python dependencies:
-        - PyGObject
-        - ijson
-        - numpy
-        - pillow
-        - psutil
-        - pywayland
-        - requests
-        - setproctitle
-        - toml
-        - watchdog
+        - `python-fabric-git`
+        - `python-gobject`
+        - `python-ijson`
+        - `python-numpy`
+        - `python-pillow`
+        - `python-psutil`
+        - `python-pywayland`
+        - `python-requests`
+        - `python-setproctitle`
+        - `python-toml`
+        - `python-watchdog`
     - Fonts (automated on first run):
         - Zed Sans
         - Tabler Icons
