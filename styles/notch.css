@@ -97,7 +97,7 @@
 #network-menu,
 #emoji {
   background-color: var(--shadow);
-  padding: 14px;
+  padding: 10px;
   border-radius: 0 0 34px 34px;
   transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1);
 }

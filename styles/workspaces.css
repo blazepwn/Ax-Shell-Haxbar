@@ -1,5 +1,5 @@
 #workspaces {
-  padding: 14px;
+  padding: 8px;
 }
 
 #workspaces-num {
@@ -36,14 +36,14 @@
 }
 
 #workspaces > button.active {
-  min-width: 48px;
+  min-width: 32px;
   min-height: 8px;
   background-color: var(--primary);
 }
 
 #workspaces > button.active.vertical {
   min-width: 8px;
-  min-height: 48px;
+  min-height: 32px;
   background-color: var(--primary);
 }
 
@@ -56,7 +56,7 @@
 }
 
 #workspaces-num {
-  padding: 8px;
+  padding: 4px;
 }
 
 #workspaces-num > button {

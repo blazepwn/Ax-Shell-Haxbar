@@ -74,12 +74,13 @@ ADD_WATERMARK=true
 if [ "$WIDTH" -lt 150 ] || [ "$HEIGHT" -lt 150 ]; then
     # Tiny (Icon size)
     RADIUS=5
-    SHADOW_GEOMETRY='20x5+0+2'
-    ADD_WATERMARK=false
+    SHADOW_GEOMETRY='40x10+0+20'
+    ADD_WATERMARK=true
+    FONT_SIZE=12
 elif [ "$WIDTH" -lt 500 ] || [ "$HEIGHT" -lt 400 ]; then
     # Compact (Dialog/Small Window)
     RADIUS=10
-    SHADOW_GEOMETRY='60x20+0+10'
+    SHADOW_GEOMETRY='60x20+0+20'
     FONT_SIZE=15
     ADD_WATERMARK=true
 fi
@@ -106,6 +107,12 @@ magick "$EDITED_PATH" -bordercolor "$BORDER_COLOR" -border 0 "$EDITED_PATH"
 
 # 4. Add Watermark (Functional)
 if [ "$ADD_WATERMARK" = true ]; then
+    # Ensure minimum width to prevent watermark cut-off
+    CUR_W=$(identify -format "%w" "$EDITED_PATH")
+    if [ "$CUR_W" -lt 150 ]; then
+        magick "$EDITED_PATH" -background none -gravity south -extent 150x%[h] "$EDITED_PATH"
+    fi
+
     echo -en "$WATERMARK_TEXT" | magick "$EDITED_PATH" -gravity South \
         -pointsize "$FONT_SIZE" -fill "$FONT_COLOR" -undercolor none \
         -font "$FONT_NAME" -annotate +0+15 @- \
